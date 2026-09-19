@@ -78,7 +78,14 @@ int allocateBed(int wardIdx, int bedOccupancy[4][20]) {
     return -1; // Ward full
 }
 
-// Register a new patient with 1-4 user-friendly input mapping and bed allocation
+// Calculate wait time for a specialty and increment queue count
+double calcWaitTime(int specIdx) {
+    double wait = specQueueCount[specIdx] * SPEC_TIME[specIdx];
+    specQueueCount[specIdx]++;
+    return wait;
+}
+
+// Register a new patient with 1-4 user-friendly input mapping, bed allocation, and wait time calculation
 void registerPatient() {
     if (patientCount >= MAX_PATIENTS) {
         printf("\nPatient limit reached!\n");
@@ -150,14 +157,14 @@ void registerPatient() {
         p_wardCost[idx] = 0.0;
     }
 
-    // Bill & Queue computations
+    // Bill & Queue computations using calcWaitTime helper
     p_gross[idx] = p_baseFee[idx] + p_surcharge[idx] + p_wardCost[idx];
     p_discount[idx] = (p_ages[idx] >= 60) ? p_gross[idx] * 0.10 : 0.0;
     p_netPayable[idx] = p_gross[idx] - p_discount[idx];
-    p_waitTime[idx] = SPEC_TIME[p_specID[idx]] * (specQueueCount[p_specID[idx]] + 1);
 
-    specQueueCount[p_specID[idx]]++;
-    p_queuePos[idx] = specQueueCount[p_specID[idx]];
+    p_waitTime[idx] = calcWaitTime(p_specID[idx]);
+    p_queuePos[idx] = specQueueCount[p_specID[idx]]; // Updated queue position after calcWaitTime increment
+
     patientCount++;
 
     printf("\nRegistered! Net Bill: Rs. %.2f | Est Wait: %.0f min\n",
@@ -237,11 +244,21 @@ int main() {
         }
 
         switch (choice) {
-            case 1: registerPatient(); break;
-            case 2: displayBedStatus(); break;
-            case 3: displayTriageQueue(); break;
-            case 4: viewAnalytics(); break;
-            case 5: printf("Saving and exiting...\n"); break;
+    case 1:
+        registerPatient();
+         break;
+            case 2:
+                 displayBedStatus();
+                  break;
+            case 3:
+                displayTriageQueue();
+                 break;
+            case 4:
+                 viewAnalytics();
+                 break;
+            case 5:
+                printf("Saving and exiting...\n");
+                 break;
             default: printf("Invalid choice! Pick 1-5.\n");
         }
     }
