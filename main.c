@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -85,6 +84,20 @@ void loadBedStatus() {
                 bedOccupancy[i][j] = 0;
             }
         }
+    }
+    fclose(fp);
+}
+
+// Save all patient records to file (synced using "w" to avoid duplicate rows)
+void savePatientRecords() {
+    FILE *fp = fopen("patient_records.txt", "w");
+    if (fp == NULL) {
+        printf("Error: Could not save patient records to file!\n");
+        return;
+    }
+    int i;
+    for (i = 0; i < patientCount; i++) {
+        fprintf(fp, "PAT-%d | %s | Net: LKR %.2f\n", 1001 + i, p_names[i], p_netPayable[i]);
     }
     fclose(fp);
 }
@@ -343,13 +356,22 @@ int main() {
         }
 
         switch (choice) {
-            case 1: registerPatient(); break;
-            case 2: displayBedStatus(); break;
-            case 3: displaySortedTriage(); break;
-            case 4: viewAnalytics(); break;
+            case 1:
+                registerPatient();
+                break;
+            case 2:
+                displayBedStatus();
+                break;
+            case 3:
+                displaySortedTriage();
+                break;
+            case 4:
+                viewAnalytics();
+                break;
             case 5:
                 saveBedStatus();
-                printf("Bed status saved to file. Saving and exiting...\n");
+                savePatientRecords();
+                printf("Bed status and patient records saved. Exiting...\n");
                 break;
             default: printf("Invalid choice! Pick 1-5.\n");
         }
