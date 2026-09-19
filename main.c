@@ -19,9 +19,9 @@ const int WARD_CAP[4] = {20, 10, 10, 5};
 char p_names[MAX_PATIENTS][50];
 int p_ages[MAX_PATIENTS];
 int p_urgency[MAX_PATIENTS]; // 1 (low) to 5 (critical)
-int p_specID[MAX_PATIENTS];
+int p_specID[MAX_PATIENTS];  // 0 to 3 internal index
 int p_isAdmitted[MAX_PATIENTS]; // 0 = OPD, 1 = Admitted
-int p_wardID[MAX_PATIENTS];
+int p_wardID[MAX_PATIENTS];  // 0 to 3 internal index, or -1
 int p_days[MAX_PATIENTS];
 int p_bedNum[MAX_PATIENTS];
 int p_queuePos[MAX_PATIENTS];
@@ -101,6 +101,27 @@ double calcWardCost(int isAdmitted, int wardIdx, int days) {
     return 0.0;
 }
 
+// Compute comprehensive bill details for a given patient index
+void computeBillDetails(int idx) {
+    int sIdx = p_specID[idx]; // p_specID is already 0-3 internal index
+    if (sIdx < 0 || sIdx >= 4) sIdx = 0;
+
+    p_baseFee[idx] = SPEC_FEES[sIdx];
+    p_surcharge[idx] = calcSurcharge(p_baseFee[idx], p_urgency[idx]);
+    p_wardCost[idx] = calcWardCost(p_isAdmitted[idx], p_wardID[idx], p_days[idx]);
+
+    p_gross[idx] = p_baseFee[idx] + p_surcharge[idx] + p_wardCost[idx];
+
+    // Age-based discount rule: < 5 or > 65 gets 15% discount
+    if (p_ages[idx] < 5 || p_ages[idx] > 65) {
+        p_discount[idx] = p_gross[idx] * 0.15;
+    } else {
+        p_discount[idx] = 0.0;
+    }
+
+    p_netPayable[idx] = p_gross[idx] - p_discount[idx];
+}
+
 // Register a new patient with 1-4 user-friendly input mapping, bed allocation, and modular calculations
 void registerPatient() {
     if (patientCount >= MAX_PATIENTS) {
@@ -140,10 +161,6 @@ void registerPatient() {
     printf("Admit to ward? (0 = No, 1 = Yes): ");
     scanf("%d", &p_isAdmitted[idx]);
 
-    // Financial base and surcharge calculations
-    p_baseFee[idx] = SPEC_FEES[p_specID[idx]];
-    p_surcharge[idx] = calcSurcharge(p_baseFee[idx], p_urgency[idx]);
-
     if (p_isAdmitted[idx] == 1) {
         // User-friendly 1-4 ward choice
         printf("Ward (1-General, 2-Paediatric, 3-Surgical, 4-ICU): ");
@@ -157,9 +174,8 @@ void registerPatient() {
         scanf("%d", &p_days[idx]);
         if (p_days[idx] < 1) p_days[idx] = 1;
 
-        // Allocate physical bed and calculate ward cost
+        // Allocate physical bed
         p_bedNum[idx] = allocateBed(p_wardID[idx], bedOccupancy);
-        p_wardCost[idx] = calcWardCost(p_isAdmitted[idx], p_wardID[idx], p_days[idx]);
 
         if (p_bedNum[idx] == -1) {
             printf("Warning: Ward full! No physical bed allocated.\n");
@@ -170,14 +186,12 @@ void registerPatient() {
         p_wardID[idx] = -1;
         p_days[idx] = 0;
         p_bedNum[idx] = -1;
-        p_wardCost[idx] = 0.0;
     }
 
-    // Bill & Queue computations
-    p_gross[idx] = p_baseFee[idx] + p_surcharge[idx] + p_wardCost[idx];
-    p_discount[idx] = (p_ages[idx] >= 60) ? p_gross[idx] * 0.10 : 0.0;
-    p_netPayable[idx] = p_gross[idx] - p_discount[idx];
+    // Compute bill details via modular function
+    computeBillDetails(idx);
 
+    // Queue & Wait time computation
     p_waitTime[idx] = calcWaitTime(p_specID[idx]);
     p_queuePos[idx] = specQueueCount[p_specID[idx]];
 
@@ -260,21 +274,11 @@ int main() {
         }
 
         switch (choice) {
-            case 1:
-                registerPatient();
-                break;
-            case 2:
-                displayBedStatus();
-                 break;
-            case 3:
-                displayTriageQueue();
-                break;
-            case 4:
-                viewAnalytics();
-                break;
-            case 5:
-                printf("Saving and exiting...\n");
-                break;
+            case 1: registerPatient(); break;
+            case 2: displayBedStatus(); break;
+            case 3: displayTriageQueue(); break;
+            case 4: viewAnalytics(); break;
+            case 5: printf("Saving and exiting...\n"); break;
             default: printf("Invalid choice! Pick 1-5.\n");
         }
     }
