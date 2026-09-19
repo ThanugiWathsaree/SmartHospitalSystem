@@ -60,9 +60,8 @@ void saveBedStatus() {
         printf("Error: Could not save bed status to file!\n");
         return;
     }
-    int i, j;
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < WARD_CAP[i]; j++) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < WARD_CAP[i]; j++) {
             fprintf(fp, "%d ", bedOccupancy[i][j]);
         }
         fprintf(fp, "\n");
@@ -77,9 +76,8 @@ void loadBedStatus() {
         initBeds();
         return;
     }
-    int i, j;
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < WARD_CAP[i]; j++) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < WARD_CAP[i]; j++) {
             if (fscanf(fp, "%d", &bedOccupancy[i][j]) != 1) {
                 bedOccupancy[i][j] = 0;
             }
@@ -88,15 +86,14 @@ void loadBedStatus() {
     fclose(fp);
 }
 
-// Save all patient records to file (synced using "w" to avoid duplicate rows)
+// Save all patient records cleanly using "w" to sync current dataset without duplicate rows
 void savePatientRecords() {
     FILE *fp = fopen("patient_records.txt", "w");
     if (fp == NULL) {
         printf("Error: Could not save patient records to file!\n");
         return;
     }
-    int i;
-    for (i = 0; i < patientCount; i++) {
+    for (int i = 0; i < patientCount; i++) {
         fprintf(fp, "PAT-%d | %s | Net: LKR %.2f\n", 1001 + i, p_names[i], p_netPayable[i]);
     }
     fclose(fp);
@@ -104,7 +101,7 @@ void savePatientRecords() {
 
 // Display bed status across all wards
 void displayBedStatus() {
-    printf("\n--- BED OCCUPANCY STATUS ---\n");
+    printf("\n--- CURRENT BED OCCUPANCY MATRIX ---\n");
     for (int i = 0; i < 4; i++) {
         printf("%-18s (Cap: %2d): [ ", WARD_NAMES[i], WARD_CAP[i]);
         int free_count = 0;
@@ -117,10 +114,11 @@ void displayBedStatus() {
 }
 
 // Allocate a physical bed (returns 1-based bed number, or -1 if full)
-int allocateBed(int wardIdx, int occupancy[4][20]) {
+int allocateBed(int wardIdx) {
+    if (wardIdx < 0 || wardIdx >= 4) return -1;
     for (int j = 0; j < WARD_CAP[wardIdx]; j++) {
-        if (occupancy[wardIdx][j] == 0) {
-            occupancy[wardIdx][j] = 1; // Mark occupied
+        if (bedOccupancy[wardIdx][j] == 0) {
+            bedOccupancy[wardIdx][j] = 1; // Mark occupied
             return j + 1; // 1-based Bed Number
         }
     }
@@ -129,12 +127,13 @@ int allocateBed(int wardIdx, int occupancy[4][20]) {
 
 // Calculate wait time for a specialty and increment queue count
 double calcWaitTime(int specIdx) {
+    if (specIdx < 0 || specIdx >= 4) specIdx = 0;
     double wait = specQueueCount[specIdx] * SPEC_TIME[specIdx];
     specQueueCount[specIdx]++;
     return wait;
 }
 
-// Calculate surcharge based on urgency level
+// Calculate surcharge based on urgency level (1-5)
 double calcSurcharge(double baseFee, int urgency) {
     if (urgency == 2) return baseFee * 0.20;
     if (urgency == 3) return baseFee * 0.50;
@@ -152,7 +151,7 @@ double calcWardCost(int isAdmitted, int wardIdx, int days) {
 
 // Compute comprehensive bill details for a given patient index
 void computeBillDetails(int idx) {
-    int sIdx = p_specID[idx]; // p_specID is already 0-3 internal index
+    int sIdx = p_specID[idx];
     if (sIdx < 0 || sIdx >= 4) sIdx = 0;
 
     p_baseFee[idx] = SPEC_FEES[sIdx];
@@ -174,18 +173,23 @@ void computeBillDetails(int idx) {
 // Print formatted patient admission and financial bill
 void printBill(int idx) {
     if (idx < 0 || idx >= patientCount) return;
+    int sIdx = p_specID[idx];
+    if (sIdx < 0 || sIdx >= 4) sIdx = 0;
+
     printf("\n======================================================\n");
     printf("         SMART HOSPITAL ADMISSION & BILL             \n");
     printf("======================================================\n");
     printf("Patient ID           : PAT-%d\n", 1001 + idx);
     printf("Patient Name         : %s\n", p_names[idx]);
-    printf("Base Consultation Fee : LKR %10.2f\n", p_baseFee[idx]);
-    printf("Emergency Surcharge   : LKR %10.2f\n", p_surcharge[idx]);
+    printf("Specialty            : %s\n", SPEC_NAMES[sIdx]);
+    printf("Base Consultation Fee: LKR %10.2f\n", p_baseFee[idx]);
+    printf("Emergency Surcharge  : LKR %10.2f\n", p_surcharge[idx]);
     printf("Ward Stay Cost       : LKR %10.2f\n", p_wardCost[idx]);
     printf("Gross Total Bill     : LKR %10.2f\n", p_gross[idx]);
-    printf("Age Subsidy Discount : LKR -%9.2f\n", p_discount[idx]);
+    printf("Age Subsidy Discount : LKR -%9.2f (15%%)\n", p_discount[idx]);
     printf("------------------------------------------------------\n");
     printf("Final Payable Amount : LKR %10.2f\n", p_netPayable[idx]);
+    printf("Estimated Wait Time  : %.0f mins (Pos: %d)\n", p_waitTime[idx], p_queuePos[idx]);
     printf("======================================================\n");
 }
 
@@ -242,10 +246,14 @@ void registerPatient() {
         if (p_days[idx] < 1) p_days[idx] = 1;
 
         // Allocate physical bed
-        p_bedNum[idx] = allocateBed(p_wardID[idx], bedOccupancy);
+        p_bedNum[idx] = allocateBed(p_wardID[idx]);
 
         if (p_bedNum[idx] == -1) {
-            printf("Warning: Ward full! No physical bed allocated.\n");
+            printf("Warning: Ward full! No physical bed allocated. Switching to OPD mode.\n");
+            p_isAdmitted[idx] = 0;
+            p_wardID[idx] = -1;
+            p_days[idx] = 0;
+            p_bedNum[idx] = -1;
         } else {
             printf("Assigned Bed #: %d\n", p_bedNum[idx]);
         }
@@ -262,13 +270,8 @@ void registerPatient() {
     p_waitTime[idx] = calcWaitTime(p_specID[idx]);
     p_queuePos[idx] = specQueueCount[p_specID[idx]];
 
-    patientCount++;
-
-    printf("\nRegistered! Est Wait: %.0f min (Queue Pos: %d)\n",
-           p_waitTime[idx], p_queuePos[idx]);
-
-    // Print itemized admission and bill receipt
     printBill(idx);
+    patientCount++;
 }
 
 // Display emergency triage queue sorted by urgency (descending)
@@ -296,8 +299,8 @@ void displaySortedTriage() {
     printf("\n--- EMERGENCY TRIAGE QUEUE (SORTED) ---\n");
     for (i = 0; i < patientCount; i++) {
         int p = order[i];
-        printf("PAT-%d | %-20s | Level %d | Status: %s\n",
-               1001 + p, p_names[p], p_urgency[p],
+        printf("PAT-%d | %-20s | Level %d | Wait: %.0f min | Status: %s\n",
+               1001 + p, p_names[p], p_urgency[p], p_waitTime[p],
                p_isAdmitted[p] ? "Admitted" : "OPD");
     }
 }
@@ -314,7 +317,7 @@ void viewAnalytics() {
         totalRev += p_netPayable[i];
     }
 
-    printf("\n--- ANALYTICS & REPORTS ---\n");
+    printf("\n--- PERFORMANCE & ANALYTICS REPORT ---\n");
     printf("Total Patients : %d\n", patientCount);
     printf("Total Revenue  : LKR %.2f\n", totalRev);
 
@@ -331,15 +334,15 @@ void viewAnalytics() {
 
 // Display main menu UI
 void showMenu() {
-    printf("\n=========================================\n");
-    printf("    SMART HOSPITAL SYSTEM - MAIN MENU\n");
-    printf("=========================================\n");
-    printf("1. Register New Patient\n");
-    printf("2. Display Bed Availability\n");
-    printf("3. Display Triage Queue (Sorted)\n");
-    printf("4. View Analytics & Reports\n");
+    printf("\n======================================================\n");
+    printf("    SMART HOSPITAL RESOURCE ALLOCATION SYSTEM\n");
+    printf("======================================================\n");
+    printf("1. Register New Patient & Generate Bill\n");
+    printf("2. Display Bed Occupancy Matrix\n");
+    printf("3. Display Emergency Triage Queue (Sorted)\n");
+    printf("4. View Analytics & Performance Report\n");
     printf("5. Save & Exit\n");
-    printf("Enter choice: ");
+    printf("Enter choice (1-5): ");
 }
 
 int main() {
@@ -371,7 +374,7 @@ int main() {
             case 5:
                 saveBedStatus();
                 savePatientRecords();
-                printf("Bed status and patient records saved. Exiting...\n");
+                printf("Bed status and patient records saved. Exiting system...\n");
                 break;
             default: printf("Invalid choice! Pick 1-5.\n");
         }
