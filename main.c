@@ -68,10 +68,10 @@ void displayBedStatus() {
 }
 
 // Allocate a physical bed (returns 1-based bed number, or -1 if full)
-int allocateBed(int wardIdx, int bedOccupancy[4][20]) {
+int allocateBed(int wardIdx, int occupancy[4][20]) {
     for (int j = 0; j < WARD_CAP[wardIdx]; j++) {
-        if (bedOccupancy[wardIdx][j] == 0) {
-            bedOccupancy[wardIdx][j] = 1; // Mark occupied
+        if (occupancy[wardIdx][j] == 0) {
+            occupancy[wardIdx][j] = 1; // Mark occupied
             return j + 1; // 1-based Bed Number
         }
     }
@@ -85,7 +85,23 @@ double calcWaitTime(int specIdx) {
     return wait;
 }
 
-// Register a new patient with 1-4 user-friendly input mapping, bed allocation, and wait time calculation
+// Calculate surcharge based on urgency level
+double calcSurcharge(double baseFee, int urgency) {
+    if (urgency == 2) return baseFee * 0.20;
+    if (urgency == 3) return baseFee * 0.50;
+    if (urgency >= 4) return baseFee * 0.25;
+    return 0.0;
+}
+
+// Calculate ward cost based on admission status, internal ward index (0-3), and days
+double calcWardCost(int isAdmitted, int wardIdx, int days) {
+    if (isAdmitted == 1 && wardIdx >= 0 && wardIdx < 4) {
+        return days * WARD_RATES[wardIdx];
+    }
+    return 0.0;
+}
+
+// Register a new patient with 1-4 user-friendly input mapping, bed allocation, and modular calculations
 void registerPatient() {
     if (patientCount >= MAX_PATIENTS) {
         printf("\nPatient limit reached!\n");
@@ -116,7 +132,7 @@ void registerPatient() {
     }
     p_specID[idx] = specInput - 1; // Map to 0-3 internal index
 
-    printf("Urgency level (1-low to 5-critical): ");
+    printf("Urgency level (1-5): ");
     scanf("%d", &p_urgency[idx]);
     if (p_urgency[idx] < 1) p_urgency[idx] = 1;
     if (p_urgency[idx] > 5) p_urgency[idx] = 5;
@@ -124,9 +140,9 @@ void registerPatient() {
     printf("Admit to ward? (0 = No, 1 = Yes): ");
     scanf("%d", &p_isAdmitted[idx]);
 
-    // Financial base calculations
+    // Financial base and surcharge calculations
     p_baseFee[idx] = SPEC_FEES[p_specID[idx]];
-    p_surcharge[idx] = (p_urgency[idx] >= 4) ? p_baseFee[idx] * 0.25 : 0.0;
+    p_surcharge[idx] = calcSurcharge(p_baseFee[idx], p_urgency[idx]);
 
     if (p_isAdmitted[idx] == 1) {
         // User-friendly 1-4 ward choice
@@ -141,9 +157,9 @@ void registerPatient() {
         scanf("%d", &p_days[idx]);
         if (p_days[idx] < 1) p_days[idx] = 1;
 
-        // Allocate physical bed using allocateBed function
+        // Allocate physical bed and calculate ward cost
         p_bedNum[idx] = allocateBed(p_wardID[idx], bedOccupancy);
-        p_wardCost[idx] = WARD_RATES[p_wardID[idx]] * p_days[idx];
+        p_wardCost[idx] = calcWardCost(p_isAdmitted[idx], p_wardID[idx], p_days[idx]);
 
         if (p_bedNum[idx] == -1) {
             printf("Warning: Ward full! No physical bed allocated.\n");
@@ -157,13 +173,13 @@ void registerPatient() {
         p_wardCost[idx] = 0.0;
     }
 
-    // Bill & Queue computations using calcWaitTime helper
+    // Bill & Queue computations
     p_gross[idx] = p_baseFee[idx] + p_surcharge[idx] + p_wardCost[idx];
     p_discount[idx] = (p_ages[idx] >= 60) ? p_gross[idx] * 0.10 : 0.0;
     p_netPayable[idx] = p_gross[idx] - p_discount[idx];
 
     p_waitTime[idx] = calcWaitTime(p_specID[idx]);
-    p_queuePos[idx] = specQueueCount[p_specID[idx]]; // Updated queue position after calcWaitTime increment
+    p_queuePos[idx] = specQueueCount[p_specID[idx]];
 
     patientCount++;
 
@@ -244,21 +260,21 @@ int main() {
         }
 
         switch (choice) {
-    case 1:
-        registerPatient();
-         break;
+            case 1:
+                registerPatient();
+                break;
             case 2:
-                 displayBedStatus();
-                  break;
+                displayBedStatus();
+                 break;
             case 3:
                 displayTriageQueue();
-                 break;
+                break;
             case 4:
-                 viewAnalytics();
-                 break;
+                viewAnalytics();
+                break;
             case 5:
                 printf("Saving and exiting...\n");
-                 break;
+                break;
             default: printf("Invalid choice! Pick 1-5.\n");
         }
     }
