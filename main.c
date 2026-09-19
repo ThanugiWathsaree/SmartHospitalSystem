@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -254,13 +253,26 @@ void displaySortedTriage() {
     }
 }
 
-// View financial and queue analytics
+// Unified analytics & urgency report function
 void viewAnalytics() {
+    int urgencyCounts[6] = {0}; // index 1 to 5
+    double totalRev = 0.0;
+
+    for (int i = 0; i < patientCount; i++) {
+        if (p_urgency[i] >= 1 && p_urgency[i] <= 5) {
+            urgencyCounts[p_urgency[i]]++;
+        }
+        totalRev += p_netPayable[i];
+    }
+
     printf("\n--- ANALYTICS & REPORTS ---\n");
-    printf("Total Patients: %d\n", patientCount);
-    double totalRevenue = 0;
-    for (int i = 0; i < patientCount; i++) totalRevenue += p_netPayable[i];
-    printf("Total Revenue : LKR %.2f\n", totalRevenue);
+    printf("Total Patients : %d\n", patientCount);
+    printf("Total Revenue  : LKR %.2f\n", totalRev);
+
+    printf("\nUrgency Level Distribution:\n");
+    for (int u = 1; u <= 5; u++) {
+        printf("- Level %d      : %d patient(s)\n", u, urgencyCounts[u]);
+    }
 
     printf("\nQueue Load per Specialty:\n");
     for (int i = 0; i < 4; i++) {
