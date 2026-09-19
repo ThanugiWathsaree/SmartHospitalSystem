@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,17 +41,52 @@ int patientCount = 0;
 int specQueueCount[4] = {0, 0, 0, 0};
 int bedOccupancy[4][20];
 
-// Initialize bed occupancy matrix
+// Initialize bed occupancy matrix (default mock)
 void initBeds() {
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 20; j++) {
             bedOccupancy[i][j] = 0;
         }
     }
-    // Initial mock occupancy for testing
+    // Initial mock occupancy for testing fallback
     bedOccupancy[0][0] = 1;
     bedOccupancy[0][3] = 1;
     bedOccupancy[3][0] = 1;
+}
+
+// Save bed occupancy matrix to file
+void saveBedStatus() {
+    FILE *fp = fopen("beds_status.txt", "w");
+    if (fp == NULL) {
+        printf("Error: Could not save bed status to file!\n");
+        return;
+    }
+    int i, j;
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < WARD_CAP[i]; j++) {
+            fprintf(fp, "%d ", bedOccupancy[i][j]);
+        }
+        fprintf(fp, "\n");
+    }
+    fclose(fp);
+}
+
+// Load bed occupancy matrix from file (fallbacks to initBeds if file not found)
+void loadBedStatus() {
+    FILE *fp = fopen("beds_status.txt", "r");
+    if (fp == NULL) {
+        initBeds();
+        return;
+    }
+    int i, j;
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < WARD_CAP[i]; j++) {
+            if (fscanf(fp, "%d", &bedOccupancy[i][j]) != 1) {
+                bedOccupancy[i][j] = 0;
+            }
+        }
+    }
+    fclose(fp);
 }
 
 // Display bed status across all wards
@@ -294,7 +330,7 @@ void showMenu() {
 }
 
 int main() {
-    initBeds();
+    loadBedStatus(); // Load existing bed status from file or initialize defaults
     int choice = 0;
 
     while (choice != 5) {
@@ -307,20 +343,13 @@ int main() {
         }
 
         switch (choice) {
-            case 1:
-                registerPatient();
-                break;
-            case 2:
-                displayBedStatus();
-                break;
-            case 3:
-                displaySortedTriage();
-                break;
-            case 4:
-                viewAnalytics();
-                break;
+            case 1: registerPatient(); break;
+            case 2: displayBedStatus(); break;
+            case 3: displaySortedTriage(); break;
+            case 4: viewAnalytics(); break;
             case 5:
-                printf("Saving and exiting...\n");
+                saveBedStatus();
+                printf("Bed status saved to file. Saving and exiting...\n");
                 break;
             default: printf("Invalid choice! Pick 1-5.\n");
         }
