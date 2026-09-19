@@ -67,7 +67,18 @@ void displayBedStatus() {
     }
 }
 
-// Register a new patient with 1-4 user-friendly input mapping
+// Allocate a physical bed (returns 1-based bed number, or -1 if full)
+int allocateBed(int wardIdx, int bedOccupancy[4][20]) {
+    for (int j = 0; j < WARD_CAP[wardIdx]; j++) {
+        if (bedOccupancy[wardIdx][j] == 0) {
+            bedOccupancy[wardIdx][j] = 1; // Mark occupied
+            return j + 1; // 1-based Bed Number
+        }
+    }
+    return -1; // Ward full
+}
+
+// Register a new patient with 1-4 user-friendly input mapping and bed allocation
 void registerPatient() {
     if (patientCount >= MAX_PATIENTS) {
         printf("\nPatient limit reached!\n");
@@ -123,20 +134,14 @@ void registerPatient() {
         scanf("%d", &p_days[idx]);
         if (p_days[idx] < 1) p_days[idx] = 1;
 
-        // Allocate physical bed
-        int allocated = -1;
-        for (int j = 0; j < WARD_CAP[p_wardID[idx]]; j++) {
-            if (bedOccupancy[p_wardID[idx]][j] == 0) {
-                bedOccupancy[p_wardID[idx]][j] = 1;
-                allocated = j;
-                break;
-            }
-        }
-        p_bedNum[idx] = allocated;
+        // Allocate physical bed using allocateBed function
+        p_bedNum[idx] = allocateBed(p_wardID[idx], bedOccupancy);
         p_wardCost[idx] = WARD_RATES[p_wardID[idx]] * p_days[idx];
 
-        if (allocated == -1) {
+        if (p_bedNum[idx] == -1) {
             printf("Warning: Ward full! No physical bed allocated.\n");
+        } else {
+            printf("Assigned Bed #: %d\n", p_bedNum[idx]);
         }
     } else {
         p_wardID[idx] = -1;
