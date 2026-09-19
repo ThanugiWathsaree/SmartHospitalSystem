@@ -122,6 +122,24 @@ void computeBillDetails(int idx) {
     p_netPayable[idx] = p_gross[idx] - p_discount[idx];
 }
 
+// Print formatted patient admission and financial bill
+void printBill(int idx) {
+    if (idx < 0 || idx >= patientCount) return;
+    printf("\n======================================================\n");
+    printf("         SMART HOSPITAL ADMISSION & BILL             \n");
+    printf("======================================================\n");
+    printf("Patient ID           : PAT-%d\n", 1001 + idx);
+    printf("Patient Name         : %s\n", p_names[idx]);
+    printf("Base Consultation Fee : LKR %10.2f\n", p_baseFee[idx]);
+    printf("Emergency Surcharge   : LKR %10.2f\n", p_surcharge[idx]);
+    printf("Ward Stay Cost       : LKR %10.2f\n", p_wardCost[idx]);
+    printf("Gross Total Bill     : LKR %10.2f\n", p_gross[idx]);
+    printf("Age Subsidy Discount : LKR -%9.2f\n", p_discount[idx]);
+    printf("------------------------------------------------------\n");
+    printf("Final Payable Amount : LKR %10.2f\n", p_netPayable[idx]);
+    printf("======================================================\n");
+}
+
 // Register a new patient with 1-4 user-friendly input mapping, bed allocation, and modular calculations
 void registerPatient() {
     if (patientCount >= MAX_PATIENTS) {
@@ -197,8 +215,11 @@ void registerPatient() {
 
     patientCount++;
 
-    printf("\nRegistered! Net Bill: Rs. %.2f | Est Wait: %.0f min\n",
-           p_netPayable[idx], p_waitTime[idx]);
+    printf("\nRegistered! Est Wait: %.0f min (Queue Pos: %d)\n",
+           p_waitTime[idx], p_queuePos[idx]);
+
+    // Print itemized admission and bill receipt
+    printBill(idx);
 }
 
 // Display triage queue sorted by urgency (descending)
@@ -239,7 +260,7 @@ void viewAnalytics() {
     printf("Total Patients: %d\n", patientCount);
     double totalRevenue = 0;
     for (int i = 0; i < patientCount; i++) totalRevenue += p_netPayable[i];
-    printf("Total Revenue : Rs. %.2f\n", totalRevenue);
+    printf("Total Revenue : LKR %.2f\n", totalRevenue);
 
     printf("\nQueue Load per Specialty:\n");
     for (int i = 0; i < 4; i++) {
