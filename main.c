@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -222,35 +223,34 @@ void registerPatient() {
     printBill(idx);
 }
 
-// Display triage queue sorted by urgency (descending)
-void displayTriageQueue() {
+// Display emergency triage queue sorted by urgency (descending)
+void displaySortedTriage() {
     if (patientCount == 0) {
         printf("\nNo patients registered yet.\n");
         return;
     }
 
-    int indices[MAX_PATIENTS];
-    for (int i = 0; i < patientCount; i++) indices[i] = i;
+    int order[MAX_PATIENTS];
+    int i, j, temp;
+    for (i = 0; i < patientCount; i++) order[i] = i;
 
-    // Sort descending by urgency using bubble sort
-    for (int i = 0; i < patientCount - 1; i++) {
-        for (int j = 0; j < patientCount - i - 1; j++) {
-            if (p_urgency[indices[j]] < p_urgency[indices[j+1]]) {
-                int tmp = indices[j];
-                indices[j] = indices[j+1];
-                indices[j+1] = tmp;
+    // Sort descending by urgency
+    for (i = 0; i < patientCount - 1; i++) {
+        for (j = 0; j < patientCount - i - 1; j++) {
+            if (p_urgency[order[j]] < p_urgency[order[j + 1]]) {
+                temp = order[j];
+                order[j] = order[j + 1];
+                order[j + 1] = temp;
             }
         }
     }
 
-    printf("\n--- TRIAGE QUEUE (Sorted by Urgency) ---\n");
-    printf("%-5s | %-22s | Age | Urg | Specialty           | Status\n", "Rank", "Name");
-    printf("--------------------------------------------------------------------------\n");
-    for (int i = 0; i < patientCount; i++) {
-        int idx = indices[i];
-        printf("%-5d | %-22s | %3d |  %d  | %-21s | %s\n",
-               i+1, p_names[idx], p_ages[idx], p_urgency[idx],
-               SPEC_NAMES[p_specID[idx]], p_isAdmitted[idx] ? "Admitted" : "OPD");
+    printf("\n--- EMERGENCY TRIAGE QUEUE (SORTED) ---\n");
+    for (i = 0; i < patientCount; i++) {
+        int p = order[i];
+        printf("PAT-%d | %-20s | Level %d | Status: %s\n",
+               1001 + p, p_names[p], p_urgency[p],
+               p_isAdmitted[p] ? "Admitted" : "OPD");
     }
 }
 
@@ -295,11 +295,21 @@ int main() {
         }
 
         switch (choice) {
-            case 1: registerPatient(); break;
-            case 2: displayBedStatus(); break;
-            case 3: displayTriageQueue(); break;
-            case 4: viewAnalytics(); break;
-            case 5: printf("Saving and exiting...\n"); break;
+            case 1:
+                registerPatient();
+                break;
+            case 2:
+                displayBedStatus();
+                break;
+            case 3:
+                displaySortedTriage();
+                break;
+            case 4:
+                viewAnalytics();
+                break;
+            case 5:
+                printf("Saving and exiting...\n");
+                break;
             default: printf("Invalid choice! Pick 1-5.\n");
         }
     }
